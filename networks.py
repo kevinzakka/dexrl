@@ -40,25 +40,3 @@ class DoubleCritic(nn.Module):
             axis_size=2,
         )
         return critic()(states, actions)  # 2, B, 1.
-
-
-if __name__ == "__main__":
-    model = Actor(action_dim=2)
-    obs = jnp.ones((32, 64))
-    variables = model.init(jax.random.PRNGKey(0), obs)
-    output = model.apply(variables, obs)
-    assert output.shape == (32, 2)
-
-    model = Critic()
-    obs = jnp.ones((32, 64))
-    act = jnp.ones((32, 24))
-    variables = model.init(jax.random.PRNGKey(0), obs, act)
-    output = model.apply(variables, obs, act)
-    assert output.shape == (32, 1)
-
-    model = DoubleCritic()
-    obs = jnp.ones((32, 64))
-    act = jnp.ones((32, 24))
-    variables = model.init(jax.random.PRNGKey(0), obs, act)
-    output = model.apply(variables, obs, act)
-    assert output.shape == (2, 32, 1)
