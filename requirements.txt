@@ -2,3 +2,5 @@ flax
 tqdm
 absl-py
 optax
+imageio
+imageio-ffmpeg
