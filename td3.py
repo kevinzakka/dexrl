@@ -42,38 +42,33 @@ class TD3Config:
 class TrainState:
     """TD3 trainer."""
 
-    config: TD3Config = struct.field(pytree_node=False)
-    spec: EnvironmentSpec = struct.field(pytree_node=False)
-
-    # Networks and parameters.
-    networks: TD3Networks = struct.field(pytree_node=False)
     policy_params: Params
     target_policy_params: Params
     critic_params: Params
     target_critic_params: Params
     twin_critic_params: Params
     target_twin_critic_params: Params
-
-    # Optimizers and states.
-    policy_optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
     policy_opt_state: optax.OptState
-    critic_optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
     critic_opt_state: optax.OptState
+    twin_critic_opt_state: optax.OptState
+    steps: int
+
+    config: TD3Config = struct.field(pytree_node=False)
+    spec: EnvironmentSpec = struct.field(pytree_node=False)
+    networks: TD3Networks = struct.field(pytree_node=False)
+    policy_optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
+    critic_optimizer: optax.GradientTransformation = struct.field(pytree_node=False)
     twin_critic_optimizer: optax.GradientTransformation = struct.field(
         pytree_node=False
     )
-    twin_critic_opt_state: optax.OptState
-
-    # Misc.
-    steps: int
 
     @staticmethod
     def initialize(
         config: TD3Config,
         spec: EnvironmentSpec,
-        prng_key: jax.random.KeyArray,
+        rng_key: jax.random.KeyArray,
     ) -> "TrainState":
-        critic_prng, twin_critic_prng, policy_prng = jax.random.split(prng_key, 3)
+        critic_rng, twin_critic_rng, policy_rng = jax.random.split(rng_key, 3)
 
         sample_obs = jnp.expand_dims(spec.observation_spec.generate_value(), 0)
         sample_act = jnp.expand_dims(spec.action_spec.generate_value(), 0)
@@ -81,19 +76,17 @@ class TrainState:
         networks = TD3Networks.initialize(spec)
 
         # Critic.
-        initial_critic_params = networks.critic.init(
-            critic_prng, sample_obs, sample_act
-        )
+        initial_critic_params = networks.critic.init(critic_rng, sample_obs, sample_act)
         initial_target_critic_params = initial_critic_params
 
         # Twin critic.
         initial_twin_critic_params = networks.twin_critic.init(
-            twin_critic_prng, sample_obs, sample_act
+            twin_critic_rng, sample_obs, sample_act
         )
         initial_target_twin_critic_params = initial_twin_critic_params
 
         # Policy.
-        initial_policy_params = networks.policy.init(policy_prng, sample_obs)
+        initial_policy_params = networks.policy.init(policy_rng, sample_obs)
         initial_target_policy_params = initial_policy_params
 
         # Optimizers.
@@ -109,6 +102,8 @@ class TrainState:
         return TrainState(
             config=config,
             spec=spec,
+            steps=0,
+            # Networks and parameters.
             networks=networks,
             policy_params=initial_policy_params,
             target_policy_params=initial_target_policy_params,
@@ -116,13 +111,13 @@ class TrainState:
             target_critic_params=initial_target_critic_params,
             twin_critic_params=initial_twin_critic_params,
             target_twin_critic_params=initial_target_twin_critic_params,
+            # Optimizers and states.
             policy_optimizer=policy_optimizer,
             policy_opt_state=initial_policy_opt_state,
             critic_optimizer=critic_optimizer,
             critic_opt_state=initial_critic_opt_state,
             twin_critic_optimizer=twin_critic_optimizer,
             twin_critic_opt_state=initial_twin_critic_opt_state,
-            steps=0,
         )
 
     @jax.jit
@@ -134,7 +129,7 @@ class TrainState:
     def policy_step(
         self,
         env_output: dm_env.TimeStep,
-        prng_key: jax.random.KeyArray,
+        rng_key: jax.random.KeyArray,
     ) -> jnp.ndarray:
         # Forward observation through policy network to get an action.
         obs = jnp.expand_dims(env_output.observation, 0)
@@ -142,7 +137,7 @@ class TrainState:
         return add_policy_noise(
             action,
             self.spec.action_spec,
-            prng_key,
+            rng_key,
             self.config.target_sigma,
             self.config.noise_clip,
         )
@@ -151,16 +146,16 @@ class TrainState:
     def learner_step(
         self,
         transitions: Transition,
-        prng_key: jax.random.KeyArray,
+        rng_key: jax.random.KeyArray,
     ) -> Tuple["TrainState", Dict[str, jnp.ndarray]]:
-        key_critic, key_twin = jax.random.split(prng_key, 2)
+        key_critic, key_twin = jax.random.split(rng_key, 2)
 
         def polyak_average(x: jnp.ndarray, y: jnp.ndarray) -> jnp.ndarray:
             """Polyak averaging of network and target network parameters."""
             return x * (1 - self.config.tau) + y * self.config.tau
 
         def critic_loss(
-            critic_params: Params, prng_key: jax.random.KeyArray
+            critic_params: Params, rng_key: jax.random.KeyArray
         ) -> jnp.ndarray:
             q_tm1 = self.networks.critic.apply(
                 critic_params,
@@ -173,7 +168,7 @@ class TrainState:
             action = add_policy_noise(
                 action,
                 self.spec.action_spec,
-                prng_key,
+                rng_key,
                 self.config.target_sigma,
                 self.config.noise_clip,
             )
@@ -293,12 +288,12 @@ class TrainState:
 def add_policy_noise(
     action: jnp.ndarray,
     action_spec: specs.Array,
-    prng_key: jax.random.KeyArray,
+    rng_key: jax.random.KeyArray,
     target_sigma: float,
     noise_clip: float,
 ) -> jnp.ndarray:
     # Sample noise from a normal distribution.
-    noise = jax.random.normal(key=prng_key, shape=action_spec.shape)
+    noise = jax.random.normal(key=rng_key, shape=action_spec.shape)
     noise = noise * target_sigma
     noise = jnp.clip(noise, -noise_clip, noise_clip)
 
@@ -311,10 +306,10 @@ def add_policy_noise(
 
 
 def action_spec_sample(
-    action_spec: specs.Array, prng_key: jax.random.KeyArray
+    action_spec: specs.Array, rng_key: jax.random.KeyArray
 ) -> jnp.ndarray:
     return jax.random.uniform(
-        key=prng_key,
+        key=rng_key,
         minval=action_spec.minimum,
         maxval=action_spec.maximum,
         shape=action_spec.shape,
@@ -326,30 +321,34 @@ def evaluate(
     state: TrainState,
     num_episodes: int,
 ):
+    # frames = []
     return_queue = []
     length_queue = []
-    # success_queue = []
-    # success_rate_queue = []
+    success_queue = []
+    success_rate_queue = []
 
-    for _ in range(num_episodes):
+    for episode in range(num_episodes):
         rewards = 0.0
         length = 0
         timestep = environment.reset()
         while not timestep.last():
             action = state.get_action(timestep)
             timestep = environment.step(action)
+            # if episode == 0:
+            # frames.append(environment.physics.render(camera_id=0, height=240, width=320))
             rewards += timestep.reward
             length += 1
         return_queue.append(rewards)
         length_queue.append(length)
-        # success_queue.append(environment.task.successes)
-        # success_rate_queue.append(
-        #     environment.task.successes / environment.task.successes_needed
-        # )
+        success_queue.append(environment.task.successes)
+        success_rate_queue.append(
+            environment.task.successes / environment.task.successes_needed
+        )
 
     return {
         "return": np.mean(return_queue),
         "length": np.mean(length_queue),
-        # "consecutive_successes": np.mean(success_queue),
-        # "success_rate": np.mean(success_rate_queue),
+        # "frames": frames,
+        "consecutive_successes": np.mean(success_queue),
+        "success_rate": np.mean(success_rate_queue),
     }

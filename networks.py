@@ -35,7 +35,7 @@ class Critic(nn.Module):
 class TD3Networks:
     policy: Actor
     critic: Critic
-    twin_critic: Critic  # TODO(kevin): Consider removing if redundant.
+    twin_critic: Critic
 
     @staticmethod
     def initialize(spec: EnvironmentSpec) -> "TD3Networks":

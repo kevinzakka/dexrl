@@ -57,4 +57,4 @@ class ReplayBuffer:
         )
 
     def is_ready(self, batch_size: int) -> bool:
-        return batch_size <= len(self._buffer)
+        return batch_size <= len(self)
