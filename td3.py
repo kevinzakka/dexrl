@@ -5,7 +5,6 @@ import dm_env
 import flax
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 import rlax
 from dm_env import specs
@@ -314,41 +313,3 @@ def action_spec_sample(
         maxval=action_spec.maximum,
         shape=action_spec.shape,
     )
-
-
-def evaluate(
-    environment: dm_env.Environment,
-    state: TrainState,
-    num_episodes: int,
-):
-    # frames = []
-    return_queue = []
-    length_queue = []
-    success_queue = []
-    success_rate_queue = []
-
-    for episode in range(num_episodes):
-        rewards = 0.0
-        length = 0
-        timestep = environment.reset()
-        while not timestep.last():
-            action = state.get_action(timestep)
-            timestep = environment.step(action)
-            # if episode == 0:
-            # frames.append(environment.physics.render(camera_id=0, height=240, width=320))
-            rewards += timestep.reward
-            length += 1
-        return_queue.append(rewards)
-        length_queue.append(length)
-        success_queue.append(environment.task.successes)
-        success_rate_queue.append(
-            environment.task.successes / environment.task.successes_needed
-        )
-
-    return {
-        "return": np.mean(return_queue),
-        "length": np.mean(length_queue),
-        # "frames": frames,
-        "consecutive_successes": np.mean(success_queue),
-        "success_rate": np.mean(success_rate_queue),
-    }

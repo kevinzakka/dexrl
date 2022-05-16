@@ -3,7 +3,6 @@ import dataclasses
 import dm_env
 from acme import wrappers
 from dexterity import manipulation
-from dm_control import suite
 from dm_env import specs
 
 
@@ -20,17 +19,8 @@ class EnvironmentSpec:
         )
 
 
-def make_environment(
-    domain_name: str,
-    task_name: str,
-    seed: int,
-) -> dm_env.Environment:
-    env = manipulation.load(
-        domain_name=domain_name,
-        task_name=task_name,
-        seed=seed,
-        # task_kwargs=dict(random=seed),
-    )
+def make_env(domain_name: str, task_name: str, seed: int) -> dm_env.Environment:
+    env = manipulation.load(domain_name=domain_name, task_name=task_name, seed=seed)
 
     env = wrappers.SinglePrecisionWrapper(env)
     env = wrappers.CanonicalSpecWrapper(env, clip=True)
