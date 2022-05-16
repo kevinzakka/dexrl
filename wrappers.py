@@ -16,8 +16,8 @@ class TrackEpisodeStatsWrapper(base.EnvironmentWrapper):
 
         self._episode_return = 0.0
         self._episode_length = 0
-        self._return_queue = deque(maxlen=deque_size)
-        self._length_queue = deque(maxlen=deque_size)
+        self._return_queue: Deque[float] = deque(maxlen=deque_size)
+        self._length_queue: Deque[int] = deque(maxlen=deque_size)
 
     def reset(self) -> dm_env.TimeStep:
         self._episode_return = 0.0
@@ -36,11 +36,11 @@ class TrackEpisodeStatsWrapper(base.EnvironmentWrapper):
         return timestep
 
     @property
-    def return_queue(self) -> Deque:
+    def return_queue(self) -> Deque[float]:
         return self._return_queue
 
     @property
-    def length_queue(self) -> Deque:
+    def length_queue(self) -> Deque[int]:
         return self._length_queue
 
 

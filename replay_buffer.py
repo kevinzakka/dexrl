@@ -32,6 +32,7 @@ class ReplayBuffer:
         return batch_size <= len(self)
 
     def insert(self, timestep: dm_env.TimeStep, action: Optional[np.ndarray]) -> None:
+        """Inserts a timestep into the buffer."""
         self._prev = self._latest
         self._action = action
         self._latest = timestep
@@ -48,6 +49,7 @@ class ReplayBuffer:
             )
 
     def sample(self, batch_size: int) -> Transition:
+        """Samples a batch of transitions from the buffer."""
         # Note tm1 stands for t minus 1.
         obs_tm1, a_tm1, r_t, discount_t, obs_t = zip(
             *random.sample(self._buffer, batch_size)

@@ -96,7 +96,7 @@ def main(_) -> None:
             timestep = environment.step(action)
 
             # Store experience.
-            accumulator.insert(timestep, action)
+            accumulator.insert(timestep, action)  # type: ignore
 
             # Reset
             if timestep.last():
@@ -144,5 +144,4 @@ def main(_) -> None:
 
 if __name__ == "__main__":
     flags.mark_flag_as_required("experiment_name")
-
     app.run(main)
