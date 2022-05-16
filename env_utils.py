@@ -22,8 +22,8 @@ class EnvironmentSpec:
 def make_env(domain_name: str, task_name: str, seed: int) -> dm_env.Environment:
     env = manipulation.load(domain_name=domain_name, task_name=task_name, seed=seed)
 
-    env = wrappers.SinglePrecisionWrapper(env)
-    env = wrappers.CanonicalSpecWrapper(env, clip=True)
-    env = wrappers.ConcatObservationWrapper(env)
+    env = wrappers.ConcatObservationWrapper(env)  # Convert obs from dict to flat array.
+    env = wrappers.CanonicalSpecWrapper(env, clip=True)  # Rescale acts to [-1, 1].
+    env = wrappers.SinglePrecisionWrapper(env)  # Single precision obs and acts.
 
     return env

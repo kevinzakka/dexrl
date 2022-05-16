@@ -304,8 +304,7 @@ def add_policy_noise(
 ) -> jnp.ndarray:
     """Adds mean-zero Gaussian noise to the action."""
     # Sample noise from a normal distribution.
-    noise = jax.random.normal(key=rng_key, shape=action_spec.shape)
-    noise = noise * target_sigma
+    noise = jax.random.normal(key=rng_key, shape=action_spec.shape) * target_sigma
     noise = jnp.clip(noise, -noise_clip, noise_clip)
 
     # Add noise to the action and clip to remain within action bounds.
