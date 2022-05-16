@@ -1,8 +1,6 @@
 import jax
 import tqdm
-from absl import app
-from absl import flags
-from absl import logging
+from absl import app, flags, logging
 
 import env_utils
 import evaluation
@@ -20,6 +18,7 @@ flags.DEFINE_integer("warmstart_timesteps", int(1e4), "Random action timesteps."
 flags.DEFINE_integer("eval_episodes", 10, "How many eval episodes to run.")
 flags.DEFINE_integer("eval_interval", int(1e3), "Logging interval.")
 flags.DEFINE_integer("log_interval", int(1e3), "Logging interval.")
+flags.DEFINE_integer("checkpoint_interval", int(1e4), "Checkpoint interval.")
 
 FLAGS = flags.FLAGS
 
@@ -98,6 +97,10 @@ def main(_) -> None:
             if FLAGS.use_wandb:
                 wandb.log({"evaluation/return": eval_info.average_return}, i)
                 wandb.log({"evaluation/length": eval_info.average_length}, i)
+
+        # Checkpoint.
+        if i % FLAGS.checkpoint_interval == 0:
+            pass
 
 
 if __name__ == "__main__":

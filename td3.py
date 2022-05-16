@@ -121,6 +121,7 @@ class TrainState:
 
     @jax.jit
     def get_action(self, env_output: dm_env.TimeStep) -> jnp.ndarray:
+        """Policy step during evaluation."""
         obs = jnp.expand_dims(env_output.observation, 0)
         return self.networks.policy.apply(self.policy_params, obs)[0]
 
@@ -130,9 +131,11 @@ class TrainState:
         env_output: dm_env.TimeStep,
         rng_key: jax.random.KeyArray,
     ) -> jnp.ndarray:
+        """Policy step during training."""
         # Forward observation through policy network to get an action.
-        obs = jnp.expand_dims(env_output.observation, 0)
-        action = self.networks.policy.apply(self.policy_params, obs)[0]
+        action = self.get_action(env_output)
+
+        # Add noise to the action and clip to make sure it remains within bounds.
         return add_policy_noise(
             action,
             self.spec.action_spec,
@@ -283,6 +286,14 @@ class TrainState:
 
         return new_state, metrics
 
+    def save_checkpoint(self, filename: str) -> None:
+        """Saves the current model state to a checkpoint."""
+        raise NotImplementedError
+
+    def load_checkpoint(self, filename: str) -> "TrainState":
+        """Loads the model state from a checkpoint."""
+        raise NotImplementedError
+
 
 def add_policy_noise(
     action: jnp.ndarray,
@@ -291,6 +302,7 @@ def add_policy_noise(
     target_sigma: float,
     noise_clip: float,
 ) -> jnp.ndarray:
+    """Adds mean-zero Gaussian noise to the action."""
     # Sample noise from a normal distribution.
     noise = jax.random.normal(key=rng_key, shape=action_spec.shape)
     noise = noise * target_sigma
@@ -307,6 +319,7 @@ def add_policy_noise(
 def action_spec_sample(
     action_spec: specs.Array, rng_key: jax.random.KeyArray
 ) -> jnp.ndarray:
+    """Samples an action uniformly within the action bounds."""
     return jax.random.uniform(
         key=rng_key,
         minval=action_spec.minimum,
