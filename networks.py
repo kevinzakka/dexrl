@@ -1,6 +1,9 @@
+import dataclasses
+
 import flax.linen as nn
-import jax
 import jax.numpy as jnp
+
+from env_utils import EnvironmentSpec
 
 
 class Actor(nn.Module):
@@ -25,18 +28,19 @@ class Critic(nn.Module):
         x = nn.Dense(256)(x)
         x = nn.relu(x)
         x = nn.Dense(1)(x)
-        return x  # B, 1
+        return jnp.squeeze(x)  # (B,).
 
 
-class DoubleCritic(nn.Module):
-    @nn.compact
-    def __call__(self, states, actions):
-        critic = nn.vmap(
-            Critic,
-            variable_axes={"params": 0},
-            split_rngs={"params": True},
-            in_axes=None,
-            out_axes=0,
-            axis_size=2,
+@dataclasses.dataclass
+class TD3Networks:
+    policy: Actor
+    critic: Critic
+    twin_critic: Critic  # TODO(kevin): Consider removing if redundant.
+
+    @staticmethod
+    def initialize(spec: EnvironmentSpec) -> "TD3Networks":
+        return TD3Networks(
+            policy=Actor(action_dim=spec.action_spec.shape[0]),
+            critic=Critic(),
+            twin_critic=Critic(),
         )
-        return critic()(states, actions)  # 2, B, 1.

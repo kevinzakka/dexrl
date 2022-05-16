@@ -4,7 +4,6 @@ from typing import Deque, NamedTuple, Optional
 
 import dm_env
 import numpy as np
-from dm_env import specs
 
 
 class Transition(NamedTuple):
@@ -16,7 +15,7 @@ class Transition(NamedTuple):
 
 
 class ReplayBuffer:
-    """A dead-simple in-memory replay buffer."""
+    """An in-memory replay buffer."""
 
     def __init__(self, capacity: int, discount_factor: float) -> None:
         self._prev: Optional[dm_env.TimeStep] = None
