@@ -19,11 +19,11 @@ flags.DEFINE_integer("seed", 0, "RNG seed.")
 flags.DEFINE_integer("total_timesteps", int(1e6), "Timesteps to train for.")
 flags.DEFINE_integer("warmstart_timesteps", int(1e4), "Random action timesteps.")
 flags.DEFINE_integer("eval_episodes", 10, "How many eval episodes to run.")
-flags.DEFINE_integer("eval_interval", int(1e3), "Logging interval.")
+flags.DEFINE_integer("eval_interval", int(5e3), "Policy evaluation interval.")
 flags.DEFINE_integer("log_interval", int(1e3), "Logging interval.")
-flags.DEFINE_integer("checkpoint_interval", int(1e4), "Checkpoint interval.")
+flags.DEFINE_integer("checkpoint_interval", int(1e5), "Checkpoint interval.")
 flags.DEFINE_bool(
-    "capture_video", False, "Capture and save videos of the agent when it's evaluated."
+    "capture_video", False, "Capture and save videos during policy evaluation."
 )
 
 FLAGS = flags.FLAGS
