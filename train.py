@@ -2,6 +2,7 @@ import random
 import time
 
 import jax
+import numpy as np
 import tqdm
 from absl import app, flags
 
@@ -12,8 +13,8 @@ import td3
 import wrappers
 
 flags.DEFINE_string("experiment_name", None, "Name for this experiment.")
-flags.DEFINE_string("domain_name", "reacher", "Domain name.")
-flags.DEFINE_string("task_name", "easy", "Task name.")
+flags.DEFINE_string("domain_name", "reach", "Domain name.")
+flags.DEFINE_string("task_name", "state_dense", "Task name.")
 flags.DEFINE_bool("use_wandb", False, "Use wandb for logging.")
 flags.DEFINE_integer("seed", 0, "RNG seed.")
 flags.DEFINE_integer("total_timesteps", int(1e6), "Timesteps to train for.")
@@ -45,6 +46,7 @@ def main(_) -> None:
 
     # Seed RNGs.
     random.seed(FLAGS.seed)
+    np.random.seed(FLAGS.seed)
     rng = jax.random.PRNGKey(FLAGS.seed)
 
     # TD3 hyperparameters.
@@ -88,7 +90,9 @@ def main(_) -> None:
             # Act.
             rng, action_rng = jax.random.split(rng)
             if i < FLAGS.warmstart_timesteps:
-                action = td3.action_spec_sample(spec.action, action_rng)
+                action = np.random.uniform(
+                    spec.action.minimum, spec.action.maximum, spec.action.shape
+                ).astype(spec.action.dtype)
             else:
                 action = state.policy_step(timestep, action_rng)
 
@@ -121,7 +125,6 @@ def main(_) -> None:
                             wandb.log({f"training/{k}": v}, i)
 
             # Evaluate.
-            # Note: This will evaluate at the very first step.
             if i % FLAGS.eval_interval == 0:
                 eval_info = evaluation.evaluate(
                     eval_environment, state, FLAGS.eval_episodes

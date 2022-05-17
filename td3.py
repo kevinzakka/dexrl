@@ -1,5 +1,4 @@
 import dataclasses
-import functools
 from typing import Dict, Tuple
 
 import dm_env
@@ -147,7 +146,7 @@ class TrainState:
             self.config.noise_clip,
         )
 
-    @functools.partial(jax.jit, donate_argnums=0)
+    @jax.jit
     def learner_step(
         self,
         transitions: Transition,
@@ -303,14 +302,3 @@ def add_policy_noise(
     noise = jax.random.normal(key=rng_key, shape=action_spec.shape) * target_sigma
     noise = jnp.clip(noise, -noise_clip, noise_clip)
     return jnp.clip(action + noise, action_spec.minimum, action_spec.maximum)
-
-
-def action_spec_sample(
-    action_spec: specs.Array, rng_key: jax.random.KeyArray
-) -> jnp.ndarray:
-    return jax.random.uniform(
-        key=rng_key,
-        minval=action_spec.minimum,
-        maxval=action_spec.maximum,
-        shape=action_spec.shape,
-    )
