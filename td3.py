@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 from typing import Dict, Tuple
 
 import dm_env
@@ -146,7 +147,7 @@ class TrainState:
             self.config.noise_clip,
         )
 
-    @jax.jit
+    @functools.partial(jax.jit, donate_argnums=0)
     def learner_step(
         self,
         transitions: Transition,
@@ -233,7 +234,7 @@ class TrainState:
             self.policy_params, self.critic_params
         )
 
-        def update_policy_step():
+        def update_policy_step() -> Tuple[Params, Params, optax.OptState]:
             policy_updates, policy_opt_state = self.policy_optimizer.update(
                 policy_gradients, self.policy_opt_state
             )
