@@ -69,8 +69,8 @@ class TrainState:
     ) -> "TrainState":
         critic_rng, twin_critic_rng, policy_rng = jax.random.split(rng_key, 3)
 
-        sample_obs = jnp.expand_dims(spec.observation_spec.generate_value(), 0)
-        sample_act = jnp.expand_dims(spec.action_spec.generate_value(), 0)
+        sample_obs = jnp.expand_dims(spec.zeros_like(spec.observation), 0)
+        sample_act = jnp.expand_dims(spec.zeros_like(spec.action), 0)
 
         networks = TD3Networks.initialize(spec)
 
@@ -140,7 +140,7 @@ class TrainState:
         # Add noise to the action and clip to make sure it remains within bounds.
         return add_policy_noise(
             action,
-            self.spec.action_spec,
+            self.spec.action,
             rng_key,
             self.config.target_sigma,
             self.config.noise_clip,
@@ -169,7 +169,7 @@ class TrainState:
             )
             action = add_policy_noise(
                 action,
-                self.spec.action_spec,
+                self.spec.action,
                 rng_key,
                 self.config.target_sigma,
                 self.config.noise_clip,

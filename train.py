@@ -88,7 +88,7 @@ def main(_) -> None:
             # Act.
             rng, action_rng = jax.random.split(rng)
             if i < FLAGS.warmstart_timesteps:
-                action = td3.action_spec_sample(spec.action_spec, action_rng)
+                action = td3.action_spec_sample(spec.action, action_rng)
             else:
                 action = state.policy_step(timestep, action_rng)
 

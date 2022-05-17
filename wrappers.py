@@ -45,7 +45,7 @@ class TrackEpisodeStatsWrapper(base.EnvironmentWrapper):
 
 
 class VideoWrapper(base.EnvironmentWrapper):
-    """A wrapper for rendering MuJoCo-based environments."""
+    """A wrapper for capturing videos in MuJoCo-based environments."""
 
     def __init__(
         self,
