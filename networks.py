@@ -5,30 +5,68 @@ import jax.numpy as jnp
 
 from env_utils import EnvironmentSpec
 
+relu_layer_init = nn.initializers.kaiming_normal()
+linear_layer_init = nn.initializers.lecun_normal()
+tanh_layer_init = nn.initializers.glorot_normal()
+
 
 class Actor(nn.Module):
     action_dim: int
 
     @nn.compact
-    def __call__(self, x):
-        x = nn.Dense(256)(x)
+    def __call__(  # type: ignore
+        self,
+        x: jnp.ndarray,
+    ) -> jnp.ndarray:
+        *batch_axes, _ = x.shape
+
+        # Layer 1.
+        x = nn.Dense(256, kernel_init=relu_layer_init)(x)
         x = nn.relu(x)
-        x = nn.Dense(256)(x)
+        assert x.shape == (*batch_axes, 256)
+
+        # Layer 2.
+        x = nn.Dense(256, kernel_init=relu_layer_init)(x)
         x = nn.relu(x)
-        x = nn.Dense(self.action_dim)(x)
-        return nn.tanh(x)  # B, A.
+        assert x.shape == (*batch_axes, 256)
+
+        # Layer 3.
+        x = nn.Dense(self.action_dim, kernel_init=linear_layer_init)(x)
+        action = nn.tanh(x)  # B, A.
+        assert action.shape == (*batch_axes, self.action_dim)
+
+        return action
 
 
 class Critic(nn.Module):
     @nn.compact
-    def __call__(self, states, actions):
+    def __call__(  # type: ignore
+        self,
+        states: jnp.ndarray,
+        actions: jnp.ndarray,
+    ) -> jnp.ndarray:
+        *batch_axes, _ = states.shape
+
         x = jnp.concatenate([states, actions], axis=-1)
-        x = nn.Dense(256)(x)
+        assert x.shape == (*batch_axes, states.shape[-1] + actions.shape[-1])
+
+        # Layer 1.
+        x = nn.Dense(256, kernel_init=tanh_layer_init)(x)
+        x = nn.LayerNorm(use_scale=True, use_bias=False)(x)
+        x = nn.tanh(x)
+        assert x.shape == (*batch_axes, 256)
+
+        # Layer 2.
+        x = nn.Dense(256, kernel_init=relu_layer_init)(x)
         x = nn.relu(x)
-        x = nn.Dense(256)(x)
-        x = nn.relu(x)
-        x = nn.Dense(1)(x)
-        return jnp.squeeze(x)  # (B,).
+        assert x.shape == (*batch_axes, 256)
+
+        # Layer 3.
+        x = nn.Dense(1, kernel_init=linear_layer_init)(x)
+        q_val = jnp.squeeze(x)
+        assert q_val.shape == (*batch_axes,)
+
+        return q_val
 
 
 @dataclasses.dataclass
