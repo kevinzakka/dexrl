@@ -122,7 +122,9 @@ class TrainState:
     @jax.jit
     def get_action(self, env_output: dm_env.TimeStep) -> jnp.ndarray:
         """Policy step during evaluation."""
-        obs = jnp.expand_dims(env_output.observation, 0)
+        obs = jnp.expand_dims(env_output.observation, 0)  # (1, D).
+        # The critic takes care of the squeezing so no need to remove the batch
+        # dimension we added above.
         return self.networks.policy.apply(self.policy_params, obs)[0]
 
     @jax.jit
@@ -153,16 +155,14 @@ class TrainState:
         key_critic, key_twin = jax.random.split(rng_key, 2)
 
         def polyak_average(x: jnp.ndarray, y: jnp.ndarray) -> jnp.ndarray:
-            """Polyak averaging of network and target network parameters."""
+            """Exponential average of network and target parameters."""
             return x * (1 - self.config.tau) + y * self.config.tau
 
         def critic_loss(
             critic_params: Params, rng_key: jax.random.KeyArray
         ) -> jnp.ndarray:
             q_tm1 = self.networks.critic.apply(
-                critic_params,
-                transitions.observation,
-                transitions.action,
+                critic_params, transitions.observation, transitions.action
             )
             action = self.networks.policy.apply(
                 self.target_policy_params, transitions.next_observation
@@ -175,14 +175,10 @@ class TrainState:
                 self.config.noise_clip,
             )
             q_t = self.networks.critic.apply(
-                self.target_critic_params,
-                transitions.next_observation,
-                action,
+                self.target_critic_params, transitions.next_observation, action
             )
             twin_q_t = self.networks.twin_critic.apply(
-                self.target_twin_critic_params,
-                transitions.next_observation,
-                action,
+                self.target_twin_critic_params, transitions.next_observation, action
             )
             q_t = jnp.minimum(q_t, twin_q_t)
             target_q_tm1 = (
@@ -191,7 +187,7 @@ class TrainState:
             td_error = jax.lax.stop_gradient(target_q_tm1) - q_tm1
             return jnp.mean(jnp.square(td_error))
 
-        def policy_loss(policy_params: Params) -> jnp.ndarray:
+        def policy_loss(policy_params: Params, critic_params: Params) -> jnp.ndarray:
             """Calculates the deterministic policy gradient (DPG) loss."""
             action = self.networks.policy.apply(policy_params, transitions.observation)
             grad_critic = jax.vmap(
@@ -214,9 +210,7 @@ class TrainState:
         )
         critic_params = optax.apply_updates(self.critic_params, critic_updates)
         target_critic_params = jax.tree_util.tree_map(
-            polyak_average,
-            self.target_critic_params,
-            critic_params,
+            polyak_average, self.target_critic_params, critic_params
         )
 
         # Twin critic update.
@@ -233,9 +227,11 @@ class TrainState:
             polyak_average, self.target_twin_critic_params, twin_critic_params
         )
 
-        # Delayed policy update.
+        # Policy update.
         policy_loss_and_grad = jax.value_and_grad(policy_loss)
-        policy_loss_value, policy_gradients = policy_loss_and_grad(self.policy_params)
+        policy_loss_value, policy_gradients = policy_loss_and_grad(
+            self.policy_params, self.critic_params
+        )
 
         def update_policy_step():
             policy_updates, policy_opt_state = self.policy_optimizer.update(
@@ -247,6 +243,7 @@ class TrainState:
             )
             return policy_params, target_policy_params, policy_opt_state
 
+        # Only applied every `delay` steps.
         current_policy_state = (
             self.policy_params,
             self.target_policy_params,
@@ -302,23 +299,14 @@ def add_policy_noise(
     target_sigma: float,
     noise_clip: float,
 ) -> jnp.ndarray:
-    """Adds mean-zero Gaussian noise to the action."""
-    # Sample noise from a normal distribution.
     noise = jax.random.normal(key=rng_key, shape=action_spec.shape) * target_sigma
     noise = jnp.clip(noise, -noise_clip, noise_clip)
-
-    # Add noise to the action and clip to remain within action bounds.
-    return jnp.clip(
-        action + noise,
-        action_spec.minimum,
-        action_spec.maximum,
-    )
+    return jnp.clip(action + noise, action_spec.minimum, action_spec.maximum)
 
 
 def action_spec_sample(
     action_spec: specs.Array, rng_key: jax.random.KeyArray
 ) -> jnp.ndarray:
-    """Samples an action uniformly within the action bounds."""
     return jax.random.uniform(
         key=rng_key,
         minval=action_spec.minimum,

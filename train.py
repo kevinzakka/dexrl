@@ -12,8 +12,8 @@ import td3
 import wrappers
 
 flags.DEFINE_string("experiment_name", None, "Name for this experiment.")
-flags.DEFINE_string("domain_name", "reach", "Domain name.")
-flags.DEFINE_string("task_name", "state_dense", "Task name.")
+flags.DEFINE_string("domain_name", "reacher", "Domain name.")
+flags.DEFINE_string("task_name", "easy", "Task name.")
 flags.DEFINE_bool("use_wandb", False, "Use wandb for logging.")
 flags.DEFINE_integer("seed", 0, "RNG seed.")
 flags.DEFINE_integer("total_timesteps", int(1e6), "Timesteps to train for.")
